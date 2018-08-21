@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">multi_downloader</string>
+    <string name="javaSingle">单线程下载</string>
+    <string name="javaMultith">多线程下载</string>
+    <string name="download_start">开始</string>
+    <string name="download_pause">暂停</string>
+</resources>

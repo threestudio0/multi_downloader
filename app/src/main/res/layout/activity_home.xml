@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout  xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".ui.HomeActivity">
+
+
+    <LinearLayout
+        android:id="@+id/java"
+        android:layout_width="368dp"
+        android:layout_height="180dp"
+        android:orientation="vertical"
+        tools:layout_editor_absoluteX="8dp"
+        tools:layout_editor_absoluteY="8dp">
+
+        <TextView
+            android:id="@+id/textView"
+            android:layout_width="match_parent"
+            android:layout_height="47dp"
+            android:text="JAVA" />
+
+        <Button
+            android:id="@+id/javaSingle"
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            android:text="@string/javaSingle" />
+
+        <Button
+            android:id="@+id/javaMultith"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/javaMultith" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/ndk"
+        android:layout_width="368dp"
+        android:layout_height="166dp"
+        android:layout_below="@id/java"
+        android:orientation="vertical"
+        tools:layout_editor_absoluteX="8dp"
+        tools:layout_editor_absoluteY="196dp">
+
+        <TextView
+            android:id="@+id/textView2"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="NDK 实现" />
+
+        <Button
+            android:id="@+id/ndkSingle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/javaSingle" />
+
+    </LinearLayout>
+</RelativeLayout >
