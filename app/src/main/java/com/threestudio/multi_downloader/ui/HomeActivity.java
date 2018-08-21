@@ -38,7 +38,7 @@ public class HomeActivity extends AppCompatActivity  implements View.OnClickList
                 startActivity(new Intent(HomeActivity.this, MultiActivity.class));
                 break;
             case R.id.ndkSingle:
-                startActivity(new Intent(HomeActivity.this, HomeActivity.class));
+                startActivity(new Intent(HomeActivity.this, NativeActivity.class));
                 break;
 
         }

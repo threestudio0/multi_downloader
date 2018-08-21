@@ -10,6 +10,15 @@
 #include <stdlib.h>//exit函数
 #include <sys/stat.h>//stat系统调用获取文件大小
 #include <sys/time.h>//获取下载时间
+#include<android/log.h>
+
+#define TAG "HTTP_DOWNLOADER" // 这个是自定义的LOG的标识
+#define ALOGD(...) __android_log_print(ANDROID_LOG_DEBUG,TAG ,__VA_ARGS__) // 定义LOGD类型
+#define ALOGI(...) __android_log_print(ANDROID_LOG_INFO,TAG ,__VA_ARGS__) // 定义LOGI类型
+#define ALOGW(...) __android_log_print(ANDROID_LOG_WARN,TAG ,__VA_ARGS__) // 定义LOGW类型
+#define ALOGE(...) __android_log_print(ANDROID_LOG_ERROR,TAG ,__VA_ARGS__) // 定义LOGE类型
+#define ALOGF(...) __android_log_print(ANDROID_LOG_FATAL,TAG ,__VA_ARGS__) // 定义LOGF类型
+
 
 JNICALL jstring Java_com_threestudio_multi_1downloader_HomeActivity_stringFromJNI
         (JNIEnv *env, jobject this)
@@ -96,6 +105,8 @@ struct HTTP_RES_HEADER parse_header(const char *response)
 
     return resp;
 }
+
+void startNativeDownload(const char *url, const char *path);
 
 void get_ip_addr(char *host_name, char *ip_addr)
 {
@@ -342,4 +353,157 @@ int main(int argc, char const *argv[])
     }
     shutdown(client_socket, 2);//关闭套接字的接收和发送
     return 0;
+}
+
+void startNativeDownload(const char *url, const char *path) {
+
+    char mUrl[2048] = "127.0.0.1";//设置默认地址为本机,
+    char host[64] = {0};//远程主机地址
+    char ip_addr[16] = {0};//远程主机IP地址
+    int port = 80;//远程主机端口, http默认80端口
+    char file_name[256] = {0};//下载文件名
+
+    strcpy(mUrl, url);
+    parse_url(mUrl, host, &port, file_name);//从url中分析出主机名, 端口号, 文件名
+
+    strcpy(file_name, path);
+
+    get_ip_addr(host, ip_addr);//调用函数同访问DNS服务器获取远程主机的IP
+    if (strlen(ip_addr) == 0)
+    {
+        ALOGD("错误: 无法获取到远程服务器的IP地址, 请检查下载地址的有效性\n");
+        return;
+    }
+
+    ALOGD("\n>>>>下载地址解析成功<<<<");
+    ALOGD("\t下载地址: %s\n", mUrl);
+    ALOGD("\t远程主机: %s\n", host);
+    ALOGD("\tIP 地 址: %s\n", ip_addr);
+    ALOGD("\t主机PORT: %d\n", port);
+    ALOGD("\t 文件名 : %s\n\n", file_name);
+
+    //设置http请求头信息
+    char header[2048] = {0};
+    sprintf(header, \
+            "GET %s HTTP/1.1\r\n"\
+            "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8\r\n"\
+            "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537(KHTML, like Gecko) Chrome/47.0.2526Safari/537.36\r\n"\
+            "Host: %s\r\n"\
+            "Connection: keep-alive\r\n"\
+            "\r\n"\
+        ,mUrl, host);
+
+    ALOGD("3: 创建网络套接字...");
+    int client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (client_socket < 0)
+    {
+        ALOGD("套接字创建失败: %d\n", client_socket);
+        exit(-1);
+    }
+
+    //创建IP地址结构体
+    struct sockaddr_in addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = inet_addr(ip_addr);
+    addr.sin_port = htons(port);
+
+    //连接远程主机
+    ALOGD("4: 正在连接远程主机...");
+    int res = connect(client_socket, (struct sockaddr *) &addr, sizeof(addr));
+    if (res == -1)
+    {
+        ALOGD("连接远程主机失败, error: %d\n", res);
+        exit(-1);
+    }
+
+    ALOGD("5: 正在发送http下载请求...");
+    write(client_socket, header, strlen(header));//write系统调用, 将请求header发送给服务器
+
+
+    int mem_size = 4096;
+    int length = 0;
+    int len;
+    char *buf = (char *) malloc(mem_size * sizeof(char));
+    char *response = (char *) malloc(mem_size * sizeof(char));
+
+    //每次单个字符读取响应头信息
+    ALOGD("6: 正在解析http响应头...");
+    while ((len = read(client_socket, buf, 1)) != 0)
+    {
+        if (length + len > mem_size)
+        {
+            //动态内存申请, 因为无法确定响应头内容长度
+            mem_size *= 2;
+            char * temp = (char *) realloc(response, sizeof(char) * mem_size);
+            if (temp == NULL)
+            {
+                printf("动态内存申请失败\n");
+                exit(-1);
+            }
+            response = temp;
+        }
+
+        buf[len] = '\0';
+        strcat(response, buf);
+
+        //找到响应头的头部信息
+        int flag = 0;
+        for (int i = strlen(response) - 1; response[i] == '\n' || response[i] == '\r'; i--, flag++);
+        if (flag == 4)//连续两个换行和回车表示已经到达响应头的头尾, 即将出现的就是需要下载的内容
+            break;
+
+        length += len;
+    }
+
+    struct HTTP_RES_HEADER resp = parse_header(response);
+
+    ALOGD("\n>>>>http响应头解析成功:<<<<\n");
+
+    ALOGD("\tHTTP响应代码: %d\n", resp.status_code);
+    if (resp.status_code != 200)
+    {
+        ALOGD("文件无法下载, 远程主机返回: %d\n", resp.status_code);
+        return;
+    }
+    ALOGD("\tHTTP文档类型: %s\n", resp.content_type);
+    ALOGD("\tHTTP主体长度: %ld字节\n\n", resp.content_length);
+
+
+    ALOGD("7: 开始文件下载...\n");
+    download(client_socket, file_name, resp.content_length);
+    ALOGD("8: 关闭套接字\n");
+
+    if (resp.content_length == get_file_size(file_name))
+        ALOGD("\n文件%s下载成功! ^_^\n\n", file_name);
+    else
+    {
+        remove(file_name);
+        ALOGD("\n文件下载中有字节缺失, 下载失败, 请重试!\n\n");
+    }
+    shutdown(client_socket, 2);//关闭套接字的接收和发送
+    return;
+
+
+
+
+}
+
+void JNICALL
+Java_com_threestudio_multi_1downloader_ui_NativeActivity_startNativeDownload(JNIEnv *env,
+                                                                             jobject instance) {
+
+    const char* url =
+            "http://qd.myapp.com/myapp/qqteam/AndroidQQ/mobileqq_android.apk";
+    const char* localFilePath = "/sdcard/Download/mobileqq_android.apk";
+    startNativeDownload(url,localFilePath);
+
+}
+
+JNIEXPORT void JNICALL
+Java_com_threestudio_multi_1downloader_ui_NativeActivity_pauseNativeDownload(JNIEnv *env,
+                                                                             jobject instance) {
+
+    // TODO
+
 }
