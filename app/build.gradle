@@ -11,9 +11,20 @@ android {
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         externalNativeBuild {
             cmake {
-                cppFlags ""
+                // 使用NEON技术
+                arguments "-DANDROID_ARM_NEON=TRUE"
+
+                // C语言使用GNU11标准
+                cFlags "-std=gnu11"
+
             }
         }
+        ndk {
+            // Specifies the ABI configurations of your native
+            // libraries Gradle should build and package with your APK.
+            abiFilters 'x86_64', 'armeabi-v7a', 'arm64-v8a'
+        }
+
     }
     buildTypes {
         release {
