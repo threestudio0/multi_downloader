@@ -18,7 +18,7 @@ import java.net.URL;
 
 public class SingleService extends Service {
 
-    private static final String TAG = "SingleService";
+    private static final String TAG = "MULTI_DOWNLOADER";
     //初始化
     private static final int MSG_INIT = 0;
     //开始下载

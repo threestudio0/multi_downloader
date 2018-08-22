@@ -2,6 +2,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.threestudio.multi_downloader">
 
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
@@ -22,6 +26,8 @@
         </activity>
         <activity android:name=".ui.NativeActivity">
         </activity>
+        <service android:name=".service.SingleService"></service>
+        <service android:name=".service.MultiDownloadService"></service>
     </application>
 
 </manifest>

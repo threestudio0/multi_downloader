@@ -11,6 +11,7 @@
 #include <sys/stat.h>//stat系统调用获取文件大小
 #include <sys/time.h>//获取下载时间
 #include<android/log.h>
+#include <pthread.h>
 
 #define TAG "HTTP_DOWNLOADER" // 这个是自定义的LOG的标识
 #define ALOGD(...) __android_log_print(ANDROID_LOG_DEBUG,TAG ,__VA_ARGS__) // 定义LOGD类型
@@ -355,13 +356,21 @@ int main(int argc, char const *argv[])
     return 0;
 }
 
-void startNativeDownload(const char *url, const char *path) {
+void startDownload(JNIEnv *env, jobject instance, const char *url, const char *path) {
 
     char mUrl[2048] = "127.0.0.1";//设置默认地址为本机,
     char host[64] = {0};//远程主机地址
     char ip_addr[16] = {0};//远程主机IP地址
     int port = 80;//远程主机端口, http默认80端口
     char file_name[256] = {0};//下载文件名
+
+    //jclass      (*FindClass)(JNIEnv*, const char*);
+    jclass  clazz = (*env)->FindClass(env, "com/threestudio/multi_downloader/ui/NativeActivity");
+    //jmethodID   (*GetMethodID)(JNIEnv*, jclass, const char*, const char*);
+    jmethodID  methodID = (*env)->GetMethodID(env, clazz, "updateProgressBar", "(I)V");
+    //void        (*CallVoidMethod)(JNIEnv*, jobject, jmethodID, ...);
+    //(*env)->CallVoidMethod(env, obj, methodID, pressure);
+
 
     strcpy(mUrl, url);
     parse_url(mUrl, host, &port, file_name);//从url中分析出主机名, 端口号, 文件名
@@ -471,7 +480,61 @@ void startNativeDownload(const char *url, const char *path) {
 
 
     ALOGD("7: 开始文件下载...\n");
-    download(client_socket, file_name, resp.content_length);
+    //download(client_socket, file_name, resp.content_length);
+    //threestudio download start
+    /*下载文件函数*/
+    long hasrecieve = 0;//记录已经下载的长度
+    struct timeval t_start, t_end;//记录一次读取的时间起点和终点, 计算速度
+    int download_mem_size = 8192;//缓冲区大小8K
+    int buf_download_len = download_mem_size;//理想状态每次读取8K大小的字节流
+    int len_download;
+    ALOGD("7: 开始文件下载...      1      %s\n",file_name);
+    //创建文件描述符
+    int fd = open(&file_name, O_CREAT | O_WRONLY, S_IRWXG | S_IRWXO | S_IRWXU);
+    if (fd < 0)
+    {
+        ALOGD("文件创建失败!\n");
+        exit(0);
+    }
+    ALOGD("7: 开始文件下载...      2     \n");
+    char *download_buf = (char *) malloc(download_mem_size * sizeof(char));
+
+    //从套接字流中读取文件流
+    long diff = 0;
+    int prelen = 0;
+    double speed_download;
+
+    while (hasrecieve < resp.content_length)
+    {
+        gettimeofday(&t_start, NULL ); //获取开始时间
+        len_download = read(client_socket, download_buf, buf_download_len);
+        write(fd, download_buf, len_download);
+        gettimeofday(&t_end, NULL ); //获取结束时间
+
+        hasrecieve += len_download;//更新已经下载的长度
+        ALOGD("7: 开始文件下载...      3      \n");
+        //计算速度
+        if (t_end.tv_usec - t_start.tv_usec >= 0 &&  t_end.tv_sec - t_start.tv_sec >= 0)
+            diff += 1000000 * ( t_end.tv_sec - t_start.tv_sec ) + (t_end.tv_usec - t_start.tv_usec);//us
+
+        if (diff >= 1000000)//当一个时间段大于1s=1000000us时, 计算一次速度
+        {
+            speed_download = (double)(hasrecieve - prelen) / (double)diff * (1000000.0 / 1024.0);
+            prelen = hasrecieve;//清零下载量
+            diff = 0;//清零时间段长度
+        }
+        ALOGD("7: 开始文件下载...      4      \n");
+        int progressValue =(int) hasrecieve*1.0*100/resp.content_length;
+        ALOGD("7: 开始文件下载...      3      %d\n",progressValue);
+        ALOGD("7: 开始文件下载...      5      \n");
+        (*env)->CallVoidMethod(env, instance, methodID, progressValue);
+        //progress_bar(hasrecieve, resp.content_length, speed);
+        ALOGD("7: 开始文件下载...      6      \n");
+        if (hasrecieve == resp.content_length)
+            break;
+    }
+    //threestudio download  end
+
     ALOGD("8: 关闭套接字\n");
 
     if (resp.content_length == get_file_size(file_name))
@@ -495,9 +558,15 @@ Java_com_threestudio_multi_1downloader_ui_NativeActivity_startNativeDownload(JNI
 
     const char* url =
             "http://qd.myapp.com/myapp/qqteam/AndroidQQ/mobileqq_android.apk";
-    const char* localFilePath = "/sdcard/Download/mobileqq_android.apk";
-    startNativeDownload(url,localFilePath);
-
+    const char* localFilePath = "/sdcard/Download/mobileqq_android_native.apk";
+    startDownload(env, instance, url, localFilePath);
+    //exit(0);
+//     int testInt = 0;
+//     while(1)
+//     {
+//         testInt ++;
+//         ALOGD("threeStudio testInt = %d" ,testInt);
+//     }
 }
 
 JNIEXPORT void JNICALL
@@ -505,5 +574,6 @@ Java_com_threestudio_multi_1downloader_ui_NativeActivity_pauseNativeDownload(JNI
                                                                              jobject instance) {
 
     // TODO
+    //pause();
 
 }

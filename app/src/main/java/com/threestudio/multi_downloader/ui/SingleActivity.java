@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ProgressBar;
@@ -18,6 +19,7 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
 public class SingleActivity extends AppCompatActivity implements View.OnClickListener{
+    private String TAG ="MULTI_DOWNLOADER";
     private TextView mName;
     private ProgressBar mProgressBar;
     private TextView mPro;
@@ -37,6 +39,8 @@ public class SingleActivity extends AppCompatActivity implements View.OnClickLis
         mPro = (TextView)findViewById(R.id.pro_text);
         mStartButton = (Button)findViewById(R.id.start);
         mPauseButton = (Button)findViewById(R.id.pause);
+        mStartButton.setOnClickListener(this);
+        mPauseButton.setOnClickListener(this);
 
 
         init();
@@ -78,11 +82,13 @@ public class SingleActivity extends AppCompatActivity implements View.OnClickLis
         Intent intent = new Intent(SingleActivity.this, SingleService.class);
         switch (view.getId()){
             case R.id.start:
+                Log.d(TAG,"SingleService start button");
                 intent.setAction(SingleService.ACTION_START);
                 intent.putExtra("fileinfo", mFileInfo);
                 startService(intent);
                 break;
             case R.id.pause:
+                Log.d(TAG,"SingleService pause button");
                 intent.setAction(SingleService.ACTION_PAUSE);
                 intent.putExtra("fileinfo", mFileInfo);
                 startService(intent);
